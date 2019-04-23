@@ -96,6 +96,17 @@ func (lkb lazyKeybase) CreateAccount(name, mnemonic, bip39Passwd, encryptPasswd 
 	return newDbKeybase(db).CreateAccount(name, mnemonic, bip39Passwd, encryptPasswd, account, index)
 }
 
+//func (lkb lazyKeybase) CreateAccount(name, mnemonic, bip39Passwd, encryptPasswd string, account uint32, index uint32) (Info, error) {
+func (lkb lazyKeybase) PersistDirectPrivateKey(rawPrivKey [32]byte, passwd string, name string) (info Info, err error) {
+	db, err := sdk.NewLevelDB(lkb.name, lkb.dir)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	return newDbKeybase(db).PersistDirectPrivateKey(rawPrivKey, passwd, name)
+}
+
 func (lkb lazyKeybase) Derive(name, mnemonic, bip39Passwd, encryptPasswd string, params hd.BIP44Params) (Info, error) {
 	db, err := sdk.NewLevelDB(lkb.name, lkb.dir)
 	if err != nil {

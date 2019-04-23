@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"encoding/hex"
 	"errors"
 
 	"github.com/spf13/cobra"
@@ -75,6 +76,86 @@ the flag --nosort is set.
 	cmd.Flags().Uint32(flagIndex, 0, "Address index number for HD derivation")
 	cmd.Flags().Bool(client.FlagIndentResponse, false, "Add indent to JSON response")
 	return cmd
+}
+
+//
+func addKeyFromPrivkeyCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add-privkey <name>",
+		Short: "Add a private key encrypt it, and save to disk",
+		Long: `Add a new private key and encrypt to disk.
+
+It will read the privatekey from stdin`,
+		Args: cobra.ExactArgs(1),
+		RunE: runAddFromPrivkeyCmd,
+	}
+	cmd.Flags().Uint32(flagAccount, 0, "Account number for HD derivation")
+	cmd.Flags().Uint32(flagIndex, 0, "Address index number for HD derivation")
+	return cmd
+}
+
+/*
+input
+    - 32-bit Private key
+    - local encryption password
+output
+	- armor encrypted private key (saved to file)
+*/
+func runAddFromPrivkeyCmd(_ *cobra.Command, args []string) error {
+	var kb keys.Keybase
+	var err error
+	var encryptPassword string
+	var hexPrivKey string
+	var privKeyRaw []byte
+
+	buf := client.BufferStdin()
+	// The name of the key to save into keybase
+	name := args[0]
+	//
+	kb, err = NewKeyBaseFromHomeFlag()
+	if err != nil {
+		return err
+	}
+
+	_, err = kb.Get(name)
+	if err == nil {
+		// account exists, ask for user confirmation
+		if response, err2 := client.GetConfirmation(
+			fmt.Sprintf("override the existing name %s", name), buf); err2 != nil || !response {
+			return err2
+		}
+	}
+	encryptPassword, err = client.GetCheckPassword(
+		"Enter a passphrase to encrypt your key to disk:",
+		"Repeat the passphrase:", buf)
+	if err != nil {
+		return err
+	}
+	hexPrivKeyMessage := "Enter your hex encoded private key"
+
+	hexPrivKey, err = client.GetString(hexPrivKeyMessage, buf)
+	if err != nil {
+		return err
+	}
+	// Convert Hex to bytes[32]
+	privKeyRaw, err = hex.DecodeString(hexPrivKey)
+	var privKeySecp256 [32]byte
+	// copy(privKeyRaw[5:37], privKeySecp256[:])
+	copy(privKeySecp256[:], privKeyRaw[5:37])
+	fmt.Printf(hex.EncodeToString(privKeyRaw))
+	if err != nil {
+		return err
+	}
+	info, err := kb.PersistDirectPrivateKey(privKeySecp256, encryptPassword, name)
+	if err != nil {
+		return err
+	}
+
+	showMnemonic := false
+	mnemonic := ""
+
+	return printCreate(info, showMnemonic, mnemonic)
+
 }
 
 /*
@@ -241,7 +322,6 @@ func runAddCmd(_ *cobra.Command, args []string) error {
 			}
 		}
 	}
-
 	info, err := kb.CreateAccount(name, mnemonic, bip39Passphrase, encryptPassword, account, index)
 	if err != nil {
 		return err

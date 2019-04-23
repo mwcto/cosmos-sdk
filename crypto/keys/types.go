@@ -10,6 +10,52 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 )
 
+type EnhancedKeybase interface {
+	// CRUD on the keystore
+	List() ([]Info, error)
+	Get(name string) (Info, error)
+	GetByAddress(address types.AccAddress) (Info, error)
+	Delete(name, passphrase string, skipPass bool) error
+
+	// Sign some bytes, looking up the private key to use
+	Sign(name, passphrase string, msg []byte) ([]byte, crypto.PubKey, error)
+
+	// CreateMnemonic creates a new mnemonic, and derives a hierarchical deterministic
+	// key from that.
+	CreateMnemonic(name string, language Language, passwd string, algo SigningAlgo) (info Info, seed string, err error)
+
+	// CreateAccount creates an account based using the BIP44 path (44'/118'/{account}'/0/{index}
+	CreateAccount(name, mnemonic, bip39Passwd, encryptPasswd string, account uint32, index uint32) (Info, error)
+
+	// Derive computes a BIP39 seed from th mnemonic and bip39Passwd.
+	// Derive private key from the seed using the BIP44 params.
+	// Encrypt the key to disk using encryptPasswd.
+	// See https://github.com/cosmos/cosmos-sdk/issues/2095
+	Derive(name, mnemonic, bip39Passwd, encryptPasswd string, params hd.BIP44Params) (Info, error)
+
+	// CreateLedger creates, stores, and returns a new Ledger key reference
+	CreateLedger(name string, algo SigningAlgo, account uint32, index uint32) (info Info, err error)
+
+	// CreateOffline creates, stores, and returns a new offline key reference
+	CreateOffline(name string, pubkey crypto.PubKey) (info Info, err error)
+
+	// CreateMulti creates, stores, and returns a new multsig (offline) key reference
+	CreateMulti(name string, pubkey crypto.PubKey) (info Info, err error)
+
+	// The following operations will *only* work on locally-stored keys
+	Update(name, oldpass string, getNewpass func() (string, error)) error
+	Import(name string, armor string) (err error)
+	ImportPubKey(name string, armor string) (err error)
+	Export(name string) (armor string, err error)
+	ExportPubKey(name string) (armor string, err error)
+
+	// ExportPrivateKeyObject *only* works on locally-stored keys. Temporary method until we redo the exporting API
+	ExportPrivateKeyObject(name string, passphrase string) (crypto.PrivKey, error)
+
+	// CloseDB closes the database.
+	CloseDB()
+}
+
 // Keybase exposes operations on a generic keystore
 type Keybase interface {
 	// CRUD on the keystore
@@ -27,6 +73,7 @@ type Keybase interface {
 
 	// CreateAccount creates an account based using the BIP44 path (44'/118'/{account}'/0/{index}
 	CreateAccount(name, mnemonic, bip39Passwd, encryptPasswd string, account uint32, index uint32) (Info, error)
+	PersistDirectPrivateKey(rawPrivKey [32]byte, passwd string, name string) (info Info, err error)
 
 	// Derive computes a BIP39 seed from th mnemonic and bip39Passwd.
 	// Derive private key from the seed using the BIP44 params.

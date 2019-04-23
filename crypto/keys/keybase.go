@@ -125,6 +125,17 @@ func (kb dbKeybase) CreateAccount(name, mnemonic, bip39Passwd, encryptPasswd str
 	return kb.Derive(name, mnemonic, bip39Passwd, encryptPasswd, *hdPath)
 }
 
+func (kb dbKeybase) PersistDirectPrivateKey(rawPrivKey [32]byte, passwd string, name string) (info Info, err error) {
+	privKey := secp256k1.PrivKeySecp256k1(rawPrivKey)
+	if passwd != "" {
+		info = kb.writeLocalKey(name, privKey, passwd)
+	} else {
+		// return nil, errors.New("Error with private key provided or localKey storage")
+
+	}
+	return
+}
+
 func (kb dbKeybase) Derive(name, mnemonic, bip39Passphrase, encryptPasswd string, params hd.BIP44Params) (info Info, err error) {
 	seed, err := bip39.NewSeedWithErrorChecking(mnemonic, bip39Passphrase)
 	if err != nil {
@@ -164,7 +175,7 @@ func (kb dbKeybase) CreateMulti(name string, pub tmcrypto.PubKey) (Info, error) 
 	return kb.writeMultisigKey(name, pub), nil
 }
 
-func (kb *dbKeybase) persistDerivedKey(seed []byte, passwd, name, fullHdPath string) (info Info, err error) {
+func (kb dbKeybase) persistDerivedKey(seed []byte, passwd, name, fullHdPath string) (info Info, err error) {
 	// create master key and derive first key:
 	masterPriv, ch := hd.ComputeMastersFromSeed(seed)
 	derivedPriv, err := hd.DerivePrivateKeyForPath(masterPriv, ch, fullHdPath)
@@ -277,6 +288,7 @@ func (kb dbKeybase) Sign(name, passphrase string, msg []byte) (sig []byte, pub t
 	}
 
 	sig, err = priv.Sign(msg)
+
 	if err != nil {
 		return nil, nil, err
 	}

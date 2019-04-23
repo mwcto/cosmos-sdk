@@ -21,6 +21,7 @@ func Commands() *cobra.Command {
 	cmd.AddCommand(
 		mnemonicKeyCommand(),
 		addKeyCommand(),
+		addKeyFromPrivkeyCommand(),
 		listKeysCmd(),
 		showKeysCmd(),
 		client.LineBreak,
